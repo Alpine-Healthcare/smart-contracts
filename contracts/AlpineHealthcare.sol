@@ -54,6 +54,18 @@ contract AlpineHealthcare {
     }
 
     /**
+     * Offboard a user 
+     */
+    /**
+     * @notice Checks if a user is active.
+     */
+    function offboardUser(address user) external {
+        delete userToEncryptionKeys[user];
+        delete userPDOSRootHash[user];
+        delete userIsActive[user];
+    }
+
+    /**
      * @notice Onboards a user by marking them active and storing user keys.
      * @param _pdosHash PDOS root hash
      * @param _encryptedDataKey The data key encrypted to the user's public key

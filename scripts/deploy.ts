@@ -1,7 +1,7 @@
 import { ethers } from 'hardhat';
 
 async function main() {
-  const alpine = await ethers.deployContract('SaagBets');
+  const alpine = await ethers.deployContract('AlpineHealthcare');
 
   await alpine.waitForDeployment();
 
