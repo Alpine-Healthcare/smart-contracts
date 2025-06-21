@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-contract AlpineHealthcare {
+contract AlpineHealth {
     /**
      * Tracks compute node information
      */
@@ -28,23 +28,67 @@ contract AlpineHealthcare {
     
     // Maps user address -> agent ID -> AgentInfo
     mapping(address => mapping(uint256 => AgentInfo)) private userAgents;
+    // Maps agent ID -> AgentInfo
+    mapping(uint256 => AgentInfo) private agentIdToInfo;
+    // Maps agent ID -> user address
+    mapping(uint256 => address) private agentIdToUser;
     // Tracks number of agents per user for ID assignment
     mapping(address => uint256) private userAgentCount;
-
-    /**
-     * Handle storing encryption keys used by users and compute nodes
-     */
-    struct EncryptedKeys {
-        string dataKey;         // used to encrypt PDOS data
-        string marketplaceKey;  // used to encrypt PDOS data for marketplace usage
-    }
-    // Encrypted data key for each user (encrypted with the user's public key)
-    mapping(address => EncryptedKeys) private userToEncryptionKeys;
 
     // Array to track all users who have created agents
     address[] private agentCreators;
     // Mapping to check if a user is already in the agentCreators array
     mapping(address => bool) private isAgentCreator;
+
+    struct UserInitInfo {
+        address user;
+        address computeNode;
+        string pdosRootHash;
+        uint256[] agentIds;  // Array of agent IDs
+        AgentInfo[] agentInfos; 
+    }
+
+    constructor(UserInitInfo[] memory _initialUsers) {
+        for (uint256 i = 0; i < _initialUsers.length; i++) {
+            UserInitInfo memory userInfo = _initialUsers[i];
+            require(userInfo.user != address(0), "User address cannot be zero");
+            require(userInfo.computeNode != address(0), "Compute node address cannot be zero");
+            require(userInfo.agentIds.length == userInfo.agentInfos.length, "Agent IDs and infos arrays must have same length");
+            
+            // Initialize user
+            userIsActive[userInfo.user] = true;
+            userPDOSRootHash[userInfo.user] = userInfo.pdosRootHash;
+            
+            // Initialize compute node
+            computeNodeIsActive[userInfo.computeNode] = true;
+            
+            // Link user to compute node
+            userToComputeNode[userInfo.user] = userInfo.computeNode;
+            computeNodeToUsers[userInfo.computeNode].push(userInfo.user);
+            
+            // Initialize agents for the user
+            for (uint256 j = 0; j < userInfo.agentInfos.length; j++) {
+                uint256 agentId = userInfo.agentIds[j];
+                AgentInfo memory agent = userInfo.agentInfos[j];
+                
+                // Store agent information
+                userAgents[userInfo.user][agentId] = agent;
+                agentIdToInfo[agentId] = agent;
+                agentIdToUser[agentId] = userInfo.user;
+                
+                // Update userAgentCount to be at least agentId + 1
+                if (userAgentCount[userInfo.user] <= agentId) {
+                    userAgentCount[userInfo.user] = agentId + 1;
+                }
+            }
+            
+            // Add user to agent creators if they have any agents
+            if (userInfo.agentInfos.length > 0) {
+                agentCreators.push(userInfo.user);
+                isAgentCreator[userInfo.user] = true;
+            }
+        }
+    }
 
     /**
      * PDOS Functions
@@ -53,6 +97,7 @@ contract AlpineHealthcare {
      * @notice Updates the PDOS root for the caller.
      */
     function updatePDOSRoot(address user, string calldata _newHash) external {
+        require(userIsActive[user], "User not active");
         userPDOSRootHash[user] = _newHash;
     }
 
@@ -74,43 +119,19 @@ contract AlpineHealthcare {
     }
 
     /**
-     * Offboard a user 
-     */
-    /**
-     * @notice Checks if a user is active.
-     */
-    function offboardUser(address user) external {
-        delete userToEncryptionKeys[user];
-        delete userPDOSRootHash[user];
-        delete userIsActive[user];
-    }
-
-    /**
      * @notice Onboards a user by marking them active and storing user keys.
      * @param _pdosHash PDOS root hash
-     * @param _encryptedDataKey The data key encrypted to the user's public key
      */
-    function onboard(string calldata _pdosHash, string calldata _encryptedDataKey) external {
+    function onboard(string calldata _pdosHash) external {
         userIsActive[msg.sender] = true;
         userPDOSRootHash[msg.sender] = _pdosHash;
-
-        // Store the encrypted data key (marketplaceKey left empty for now)
-        userToEncryptionKeys[msg.sender] = EncryptedKeys(_encryptedDataKey, "");
     }
 
     /**
-     * @notice Returns the user's own encrypted data keys.
+     * @notice Returns if the requesting address has access to the user's PDOS tree.
      */
-    function hasUserAccess() external pure returns (bool) {
+    function hasUserAccess(address user) external view returns (bool) {
         return true;
-    }
-
-    /**
-     * @notice Returns the user's own encrypted data keys.
-     */
-    function getUserEncryptedDataKeys(address user) external view returns (EncryptedKeys memory) {
-        require(msg.sender == user, "Access denied");
-        return userToEncryptionKeys[user];
     }
 
     /**
@@ -122,8 +143,6 @@ contract AlpineHealthcare {
     function addComputeNodeAccessForUser(address computeNode) external {
         require(userIsActive[msg.sender], "User not active");
         userToComputeNode[msg.sender] = computeNode;
-
-        // Mark the user as authorized for this compute node
         computeNodeToUsers[computeNode].push(msg.sender);
     }
 
@@ -156,17 +175,7 @@ contract AlpineHealthcare {
 
         // Revoke authorization
         //computeNodeToUsers[computeNode][msg.sender] = false;
-    }
-
-    /**
-     * Marketplace Functions
-     * 
-     * 1. postPayment to marketplace
-     * 2. Send transaction to lit action
-     * 3. Lit action listener picks up signed transaction, pays out to marketplace item owner
-     */
-    function subscribeToMarketplaceItem(address computeNode) external {
-        // Implementation placeholder
+        userToComputeNode[msg.sender] = address(0);
     }
 
     /**
@@ -189,12 +198,16 @@ contract AlpineHealthcare {
         }
         
         uint256 agentId = userAgentCount[msg.sender];
-        userAgents[msg.sender][agentId] = AgentInfo({
+        AgentInfo memory newAgent = AgentInfo({
             ipfsHash: _ipfsHash,
             createdAt: block.timestamp,
             isActive: true,
             isPublic: _isPublic
         });
+        
+        userAgents[msg.sender][agentId] = newAgent;
+        agentIdToInfo[agentId] = newAgent;
+        agentIdToUser[agentId] = msg.sender;
         
         userAgentCount[msg.sender]++;
         return agentId;
@@ -211,8 +224,15 @@ contract AlpineHealthcare {
         require(_agentId < userAgentCount[msg.sender], "Agent does not exist");
         require(userAgents[msg.sender][_agentId].isActive, "Agent is not active");
         
-        userAgents[msg.sender][_agentId].ipfsHash = _ipfsHash;
-        userAgents[msg.sender][_agentId].isPublic = _isPublic;
+        AgentInfo memory updatedAgent = AgentInfo({
+            ipfsHash: _ipfsHash,
+            createdAt: userAgents[msg.sender][_agentId].createdAt,
+            isActive: true,
+            isPublic: _isPublic
+        });
+        
+        userAgents[msg.sender][_agentId] = updatedAgent;
+        agentIdToInfo[_agentId] = updatedAgent;
     }
 
     /**
@@ -224,6 +244,7 @@ contract AlpineHealthcare {
         require(_agentId < userAgentCount[msg.sender], "Agent does not exist");
         
         userAgents[msg.sender][_agentId].isActive = false;
+        agentIdToInfo[_agentId].isActive = false;
     }
 
     /**
@@ -360,5 +381,17 @@ contract AlpineHealthcare {
         
         // Remove the agent by deleting the AgentInfo from storage
         delete userAgents[msg.sender][_agentId];
+        delete agentIdToInfo[_agentId];
+        delete agentIdToUser[_agentId];
+    }
+
+    /**
+     * @notice Gets agent information directly by agent ID
+     * @param _agentId The ID of the agent
+     * @return Agent information and owner address
+     */
+    function getAgentInfoById(uint256 _agentId) external view returns (AgentInfo memory, address) {
+        require(agentIdToUser[_agentId] != address(0), "Agent does not exist");
+        return (agentIdToInfo[_agentId], agentIdToUser[_agentId]);
     }
 }
