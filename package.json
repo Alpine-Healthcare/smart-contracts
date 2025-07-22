@@ -4,8 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "deploy:arbitrum": "npx hardhat run scripts/deploy.ts --network arbitrum-sepolia",
     "deploy:base": "npx hardhat run scripts/deploy.ts --network base-sepolia",
     "verify:base": "npx hardhat verify --network base-sepolia --constructor-args constructorArgs.js 0xCD2e358D2916e440DcC0D24F6Cd3214A6BE2f256",
+    "verify:arbitrum": "npx hardhat verify --network arbitrum-sepolia 0xdA2a506d6f13EB9867384Aa348882dA98AC2f826",
     "deploy": "npx hardhat run scripts/deploy.ts --network alpine-marigold",
     "verify": "npx hardhat verify --network alpine-marigold --constructor-args constructorArgs.js 0x5dA4A15d8521355970c27c7aeD6f43733Cb9f8C5",
     "test": "echo \"Error: no test specified\" && exit 1"

@@ -12,21 +12,19 @@ const config: HardhatUserConfig = {
     apiKey: "1EPV8V31JFWHQSIZZSH6UTZWX9SPW5D5UD",
     customChains: [
       {
-        network: "alpine-marigold",
-        chainId: 98212,
-        URL: "https://rpc-alpine-health-rswk3oj77b.t.conduit.xyz/KtrLRd57AguVNvD77Yq8R7a5quCQRWcWb",
-        urls: {
-          apiURL: "https://explorer-alpine-health-rswk3oj77b.t.conduit.xyz/api",
-          browserURL:
-            "https://explorer-alpine-health-rswk3oj77b.t.conduit.xyz/",
-        },
-      },
-      {
         network: "base-sepolia",
         chainId: 84532,
         urls: {
           apiURL: "https://api-sepolia.basescan.org/api",
           browserURL: "https://sepolia.basescan.org",
+        },
+      },
+      {
+        network: "arbitrum-sepolia",
+        chainId: 421614,
+        urls: {
+          apiURL: "https://api-sepolia.arbiscan.io/api",
+          browserURL: "https://sepolia.arbiscan.io/",
         },
       },
     ],
@@ -35,13 +33,13 @@ const config: HardhatUserConfig = {
     enabled: true,
   },
   networks: {
-    "alpine-marigold": {
-      url: "https://rpc-alpine-health-rswk3oj77b.t.conduit.xyz/KtrLRd57AguVNvD77Yq8R7a5quCQRWcWb",
+    "base-mainnet": {
+      url: "https://mainnet.base.org",
       accounts: [process.env.WALLET_KEY as string],
       gasPrice: 1000000000,
     },
-    "base-mainnet": {
-      url: "https://mainnet.base.org",
+    "arbitrum-sepolia": {
+      url: "https://sepolia-rollup.arbitrum.io/rpc",
       accounts: [process.env.WALLET_KEY as string],
       gasPrice: 1000000000,
     },
