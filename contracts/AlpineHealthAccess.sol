@@ -28,8 +28,8 @@ contract AlpineHealthAccess {
         computeNodeToUsers[computeNode].push(userAddress);
     }
 
-    function hasUserAccess(address userAddress) public view returns (bool) {
-        return userToAccessInfo[userAddress].authorizedAccess[userAddress];
+    function hasUserAccess(address accessor, address target) public view returns (bool) {
+        return userToAccessInfo[target].authorizedAccess[accessor];
     }
 
     function getUserComputeNode(address userAddress) public view returns (address computeNode) {
