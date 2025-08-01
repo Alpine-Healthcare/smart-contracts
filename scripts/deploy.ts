@@ -6,7 +6,7 @@ async function main() {
   await alpineAccess.waitForDeployment();
 
   console.log(
-    `AlpineHealthAccess deployed to ${await alpineAccess.getAddress()}`
+    `AlpineHealthMarketplace deployed to ${await alpineAccess.getAddress()}`
   );
 }
 

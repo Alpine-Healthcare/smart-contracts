@@ -17,6 +17,8 @@ contract AlpineHealthAccess {
     // Event emitted when a user's compute node is updated
     event UserComputeNodeUpdated(address indexed userAddress, address indexed oldComputeNode, address indexed newComputeNode);
 
+    // Event emitted when a user's PDOS root is updated
+    event UserPDOSRootUpdated(address indexed userAddress, string newPDOSRoot);
 
     function addNewUser(address userAddress, address computeNode) public {
         require(userAddress != address(0), "Invalid user address");
@@ -25,6 +27,7 @@ contract AlpineHealthAccess {
         
         userToAccessInfo[userAddress].computeNode = computeNode;
         userToAccessInfo[userAddress].authorizedAccess[userAddress] = true;
+        userToAccessInfo[userAddress].authorizedAccess[computeNode] = true;
         computeNodeToUsers[computeNode].push(userAddress);
     }
 
@@ -55,6 +58,12 @@ contract AlpineHealthAccess {
         // Add user to new compute node's user list
         computeNodeToUsers[newComputeNode].push(userAddress);
         userToAccessInfo[userAddress].computeNode = newComputeNode;
+
+        // Remove old compute node from authorized access
+        userToAccessInfo[userAddress].authorizedAccess[oldComputeNode] = false;
+        // Add new compute node to authorized access
+        userToAccessInfo[userAddress].authorizedAccess[newComputeNode] = true;
+
         emit UserComputeNodeUpdated(userAddress, oldComputeNode, newComputeNode);
     }
 
@@ -96,6 +105,7 @@ contract AlpineHealthAccess {
             "Only user, compute node, or authorized access can update PDOS root"
         );
         userToAccessInfo[userAddress].pdosRoot = newPDOSRoot;
+        emit UserPDOSRootUpdated(userAddress, newPDOSRoot);
     }
 
     /**
